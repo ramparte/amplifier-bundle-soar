@@ -1,0 +1,154 @@
+name: "soar-iteration"
+description: "Single SOAR meta-learning iteration: teacher generates, student trains, evaluator scores"
+version: "1.0.0"
+
+context:
+  target_problems: []
+  current_score: 0.0
+  iteration: 0
+  convergence_threshold: 0.8
+
+steps:
+  # Step 1: Teacher generates training problems
+  - id: "generate-problems"
+    agent: "soar:teacher-agent"
+    prompt: |
+      Generate 3-5 training problems to help student learn these target skills.
+      
+      Target problems (what student needs to learn):
+      {{target_problems}}
+      
+      Current iteration: {{iteration}}
+      Student's current score: {{current_score}}
+      
+      Generate problems as JSON array. Example format:
+      {
+        "problems": [
+          {
+            "id": "prob-001",
+            "difficulty": "easy",
+            "problem_text": "What is 10 + 5?",
+            "hint": "Add the numbers",
+            "target_skill": "addition"
+          }
+        ]
+      }
+    parse_json: true
+    output: "generated_problems"
+  
+  # Step 2: Student trains on generated problems
+  - id: "student-training"
+    foreach: "{{generated_problems.problems}}"
+    as: "problem"
+    parallel: false
+    agent: "soar:student-agent"
+    prompt: |
+      Training mode: Attempt to solve this practice problem.
+      
+      Problem: {{problem.problem_text}}
+      Hint: {{problem.hint}}
+      Difficulty: {{problem.difficulty}}
+      
+      Return your solution attempt as JSON. Example:
+      {
+        "problem_id": "{{problem.id}}",
+        "solution": "15",
+        "confidence": 0.8,
+        "reasoning": "I added 10 and 5",
+        "solved": true
+      }
+    parse_json: true
+    timeout: 120
+    collect: "training_results"
+    output: "training_results"
+  
+  # Step 3: Student attempts target problems (evaluation)
+  - id: "evaluate-on-targets"
+    foreach: "{{target_problems}}"
+    as: "target_problem"
+    parallel: false
+    agent: "soar:student-agent"
+    prompt: |
+      Evaluation mode: Attempt to solve this target problem.
+      
+      Problem: {{target_problem.problem_text}}
+      Difficulty: {{target_problem.difficulty}}
+      
+      Apply what you learned from training problems.
+      
+      Return your solution attempt as JSON. Example:
+      {
+        "problem_id": "{{target_problem.problem_id}}",
+        "solution": "60",
+        "confidence": 0.7,
+        "reasoning": "120 miles / 2 hours = 60 mph",
+        "solved": true
+      }
+    parse_json: true
+    timeout: 120
+    collect: "target_results"
+    output: "target_results"
+  
+  # Step 4: Evaluator scores performance
+  - id: "score-performance"
+    agent: "soar:evaluator-agent"
+    prompt: |
+      Evaluate student's performance on target problems.
+      
+      Target problems with correct answers:
+      {{target_problems}}
+      
+      Student's solutions:
+      {{target_results}}
+      
+      Compare student answers to correct answers and score each one.
+      
+      Return evaluation as JSON. Example:
+      {
+        "total_problems": 3,
+        "problems_solved": 2,
+        "success_rate": 0.67,
+        "overall_score": 0.67,
+        "problem_scores": [
+          {"problem_id": "target-001", "correct": true, "score": 1.0},
+          {"problem_id": "target-002", "correct": true, "score": 1.0},
+          {"problem_id": "target-003", "correct": false, "score": 0.0}
+        ]
+      }
+    parse_json: true
+    output: "evaluation"
+  
+  # Step 5: Check convergence
+  - id: "check-convergence"
+    agent: "soar:evaluator-agent"
+    prompt: |
+      Check if training should stop.
+      
+      Current score: {{evaluation.overall_score}}
+      Convergence threshold: {{convergence_threshold}}
+      Iteration: {{iteration}}
+      
+      Return convergence check as JSON. Example:
+      {
+        "converged": false,
+        "reason": "Score 0.67 below threshold 0.8",
+        "should_promote": false
+      }
+    parse_json: true
+    output: "convergence_check"
+  
+  # Step 6: Package results for parent recipe
+  - id: "package-results"
+    type: "bash"
+    command: |
+      # Return structured result to parent
+      cat << EOF
+      {
+        "score": {{evaluation.overall_score}},
+        "converged": {{convergence_check.converged}},
+        "problems_solved": {{evaluation.problems_solved}},
+        "should_promote": {{convergence_check.should_promote}}
+      }
+      EOF
+    parse_json: true
+    output: "iteration_output"

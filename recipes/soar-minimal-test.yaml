@@ -1,0 +1,117 @@
+name: "soar-minimal-test"
+description: "Minimal SOAR test with 3 iterations - teacher generates problems, student trains, evaluator measures improvement"
+version: "1.0.0"
+
+context:
+  # Iteration tracking
+  iteration: 0
+  max_iterations: 3
+  converged: false
+  
+  # Performance tracking
+  baseline_score: 0.0
+  current_score: 0.0
+  best_score: 0.0
+  
+  # Thresholds
+  convergence_threshold: 0.8
+  promotion_threshold: 0.6
+  
+  # Target problems (what we're trying to learn)
+  target_problems:
+    - problem_id: "target-001"
+      difficulty: "hard"
+      problem_text: "If a train travels 120 miles in 2 hours, what is its average speed in miles per hour?"
+      correct_answer: "60"
+    - problem_id: "target-002"
+      difficulty: "hard"
+      problem_text: "A rectangle has length 8 and width 5. What is its perimeter?"
+      correct_answer: "26"
+    - problem_id: "target-003"
+      difficulty: "hard"
+      problem_text: "Calculate: (15 + 25) × 2 - 10"
+      correct_answer: "70"
+
+steps:
+  # Initial baseline evaluation
+  - id: "initial-evaluation"
+    type: "bash"
+    command: |
+      cat << 'EOF'
+      {
+        "total_problems": 3,
+        "problems_solved": 0,
+        "success_rate": 0.0,
+        "overall_score": 0.0
+      }
+      EOF
+    parse_json: true
+    output: "baseline_eval"
+  
+  # Main meta-learning loop
+  - id: "meta-learning-loop"
+    while_condition: "{{iteration}} < {{max_iterations}} and {{converged}} == false"
+    max_while_iterations: 10
+    steps:
+      
+      # Execute one iteration via sub-recipe
+      - id: "run-iteration"
+        type: "recipe"
+        recipe: "soar:recipes/soar-iteration.yaml"
+        context:
+          target_problems: "{{target_problems}}"
+          current_score: "{{current_score}}"
+          iteration: "{{iteration}}"
+          convergence_threshold: "{{convergence_threshold}}"
+        output: "iteration_result"
+        parse_json: true
+      
+      # Update state for next iteration
+      - id: "update-state"
+        type: "bash"
+        command: |
+          # Calculate new values
+          NEW_ITER=$(({{iteration}} + 1))
+          NEW_SCORE={{iteration_result.score}}
+          CONVERGED={{iteration_result.converged}}
+          
+          # Calculate best score (max of current and new)
+          BEST=$(awk 'BEGIN {
+            new = {{iteration_result.score}};
+            current = {{best_score}};
+            print (new > current) ? new : current;
+          }')
+          
+          cat << EOF
+          {
+            "new_iteration": ${NEW_ITER},
+            "new_score": ${NEW_SCORE},
+            "new_converged": ${CONVERGED},
+            "new_best": ${BEST}
+          }
+          EOF
+        parse_json: true
+        output: "new_state"
+    
+    # Apply updates after each iteration
+    update_context:
+      iteration: "{{new_state.new_iteration}}"
+      current_score: "{{new_state.new_score}}"
+      converged: "{{new_state.new_converged}}"
+      best_score: "{{new_state.new_best}}"
+    
+    # Break early if converged
+    break_when: "{{iteration_result.converged}} == true"
+  
+  # Final report
+  - id: "generate-report"
+    type: "bash"
+    command: |
+      cat << EOF
+      === SOAR Training Complete ===
+      Iterations completed: {{iteration}}
+      Final score: {{current_score}}
+      Converged: {{converged}}
+      Best score achieved: {{best_score}}
+      EOF
+    output: "final_report"

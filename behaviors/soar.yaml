@@ -1,0 +1,14 @@
+bundle:
+  name: soar-behavior
+  version: 1.0.0
+  description: Adds SOAR meta-learning capability with agents and training loops
+
+agents:
+  include:
+    - soar:agents/teacher-agent
+    - soar:agents/student-agent
+    - soar:agents/evaluator-agent
+
+context:
+  include:
+    - soar:context/soar-instructions.md

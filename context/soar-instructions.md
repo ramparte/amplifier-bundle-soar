@@ -31,7 +31,11 @@ The paper shows that models can escape reasoning plateaus by generating "steppin
 Quick 3-iteration test with mock training for validation.
 
 ```bash
-amplifier recipes execute --recipe soar:recipes/soar-minimal-test.yaml
+# Using the bundle without setting globally
+amplifier tool invoke -b soar recipes operation=execute recipe_path=soar:recipes/soar-minimal-test.yaml
+
+# Or if bundle is active
+amplifier tool invoke recipes operation=execute recipe_path=soar:recipes/soar-minimal-test.yaml
 ```
 
 ### soar-meta-learning (Future)

@@ -33,7 +33,12 @@ amplifier bundle use soar
 Run the minimal test to see SOAR in action (3 iterations, arithmetic problems):
 
 ```bash
-amplifier recipes execute --recipe soar:recipes/soar-minimal-test.yaml
+# Option 1: Using the bundle directly (without setting globally)
+amplifier tool invoke -b soar recipes operation=execute recipe_path=soar:recipes/soar-minimal-test.yaml
+
+# Option 2: Set as active bundle, then run
+amplifier bundle use soar
+amplifier tool invoke recipes operation=execute recipe_path=soar:recipes/soar-minimal-test.yaml
 ```
 
 **What this does:**

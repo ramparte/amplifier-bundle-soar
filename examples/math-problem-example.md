@@ -98,7 +98,12 @@ Teacher's adaptive curriculum was effective.
 ## Try It Yourself
 
 ```bash
-amplifier recipes execute --recipe soar:recipes/soar-minimal-test.yaml
+# Option 1: Direct invocation with bundle flag
+amplifier tool invoke -b soar recipes operation=execute recipe_path=soar:recipes/soar-minimal-test.yaml
+
+# Option 2: Set bundle as active first
+amplifier bundle use soar
+amplifier tool invoke recipes operation=execute recipe_path=soar:recipes/soar-minimal-test.yaml
 ```
 
 The actual results will vary based on the LLM's responses, but the pattern should be similar: gradual improvement as the teacher generates increasingly targeted practice problems.

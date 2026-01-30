@@ -6,7 +6,7 @@ bundle:
 
 includes:
   - bundle: git+https://github.com/microsoft/amplifier-foundation@main
-  - bundle: git+https://github.com/microsoft/amplifier-bundle-recipes@feat/convergence-loops-for-soar#subdirectory=.
+  - bundle: git+https://github.com/ramparte/amplifier-bundle-recipes@feat/convergence-loops-for-soar#subdirectory=.
   - bundle: soar:behaviors/soar
 ---
 

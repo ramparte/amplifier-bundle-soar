@@ -1,0 +1,101 @@
+name: "soar-simple-test"
+description: "Simple SOAR test using standard recipe features (no while_condition dependency)"
+version: "1.0.0"
+
+context:
+  # Target problem for testing
+  target_problem:
+    problem_id: "target-001"
+    difficulty: "hard"
+    problem_text: "If a train travels 120 miles in 2 hours, what is its average speed in miles per hour?"
+    correct_answer: "60"
+
+steps:
+  # Step 1: Teacher generates practice problems
+  - id: "generate-problems"
+    agent: "soar:teacher-agent"
+    prompt: |
+      Generate 2-3 practice problems to help a student learn this type of problem.
+      
+      Target problem: {{target_problem.problem_text}}
+      Difficulty: {{target_problem.difficulty}}
+      
+      Generate easier stepping-stone problems that build up to the target difficulty.
+      
+      Return as JSON array:
+      {
+        "problems": [
+          {
+            "id": "prob-001",
+            "difficulty": "easy",
+            "problem_text": "If a car travels 60 miles in 1 hour, what is its speed?",
+            "hint": "Speed = Distance / Time",
+            "target_skill": "basic division"
+          }
+        ]
+      }
+    parse_json: true
+    output: "generated_problems"
+  
+  # Step 2: Student trains on practice problems
+  - id: "student-training"
+    foreach: "{{generated_problems.problems}}"
+    as: "problem"
+    parallel: false
+    agent: "soar:student-agent"
+    prompt: |
+      Training mode: Solve this practice problem.
+      
+      Problem: {{problem.problem_text}}
+      Hint: {{problem.hint}}
+      Difficulty: {{problem.difficulty}}
+      
+      Return your solution as JSON:
+      {
+        "problem_id": "{{problem.id}}",
+        "solution": "your answer",
+        "reasoning": "your step-by-step work",
+        "confidence": 0.0-1.0
+      }
+    parse_json: true
+    timeout: 120
+    collect: "training_results"
+  
+  # Step 3: Student attempts target problem
+  - id: "evaluate-on-target"
+    agent: "soar:student-agent"
+    prompt: |
+      Evaluation mode: Now solve the target problem using what you learned.
+      
+      Problem: {{target_problem.problem_text}}
+      Correct answer: {{target_problem.correct_answer}}
+      
+      Return your solution as JSON:
+      {
+        "problem_id": "{{target_problem.problem_id}}",
+        "solution": "your answer",
+        "reasoning": "your step-by-step work",
+        "confidence": 0.0-1.0,
+        "correct": true/false
+      }
+    parse_json: true
+    timeout: 120
+    output: "target_result"
+  
+  # Step 4: Generate report
+  - id: "generate-report"
+    type: "bash"
+    command: |
+      cat << 'EOF'
+      === SOAR Simple Test Results ===
+      
+      Target Problem: {{target_problem.problem_text}}
+      Expected Answer: {{target_problem.correct_answer}}
+      
+      Student's Answer: {{target_result.solution}}
+      Student's Reasoning: {{target_result.reasoning}}
+      Correct: {{target_result.correct}}
+      
+      Training completed on {{generated_problems.problems | length}} practice problems.
+      EOF
+    output: "report"

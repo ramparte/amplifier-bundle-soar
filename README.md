@@ -30,15 +30,26 @@ amplifier bundle use soar
 
 ## Quick Start
 
-Run the minimal test to see SOAR in action (3 iterations, arithmetic problems):
+### Simple Test (Works Now)
+
+Test the SOAR agents with a single-iteration example:
 
 ```bash
-# Option 1: Using the bundle directly (without setting globally)
-amplifier tool invoke -b soar recipes operation=execute recipe_path=soar:recipes/soar-minimal-test.yaml
+# Re-fetch the bundle to get the latest recipes
+amplifier bundle remove soar
+amplifier bundle add git+https://github.com/ramparte/amplifier-bundle-soar@main
 
-# Option 2: Set as active bundle, then run
-amplifier bundle use soar
-amplifier tool invoke recipes operation=execute recipe_path=soar:recipes/soar-minimal-test.yaml
+# Run simple test (no convergence loops, just basic agent flow)
+amplifier tool invoke -b soar recipes operation=execute recipe_path=soar:recipes/soar-simple-test.yaml
+```
+
+### Full Meta-Learning Test (Requires PR #18)
+
+Once PR #18 merges to add convergence loop support:
+
+```bash
+# Run full SOAR loop (3 iterations with convergence detection)
+amplifier tool invoke -b soar recipes operation=execute recipe_path=soar:recipes/soar-minimal-test.yaml
 ```
 
 **What this does:**
